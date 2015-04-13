@@ -7,6 +7,7 @@ var goalOvenTemp = 0;
 var smokeDetectedAlertSent = false;
 var isCurrentlyPreheating = false;
 var curOvenTemp = 0;
+var phoneURL;
 
 
 
@@ -45,6 +46,7 @@ Handler.bind("/setGoalTemp", Behavior({
 		myLog("device recieved set goal temp command")
 		goalOvenTemp = message.requestText
 		//push to oven through an output pin
+		goalTempLabel.string = goalOvenTemp;
 		message.responseText = JSON.stringify( { goalTemp: goalOvenTemp } );
 		message.status = 200;
 		myLog("oven goal temp has been set");
@@ -54,8 +56,8 @@ Handler.bind("/setTimer", Behavior({
 	onInvoke: function(handler, message){
 		myLog("device recieved set timer command")
 		//NEED TO IMPLEMENT
-		//application.invoke(new MessageWithObject("pins:/ovenStatus/turnOff"));
 		var timerLength = message.requestText;
+		timerLengthLabel.string = timerLength;
 		message.responseText = JSON.stringify( { timerLength: timerLength } );
 		message.status = 200;
 		myLog("timer set");
@@ -71,10 +73,10 @@ Handler.bind("/getCurrentOvenTemp", Behavior({
 }));
 
 
-
-var smokeDetectedLabel = new Label({left:0, right:0, height:20, string:"False", style: labelStyle});
 var curOvenTempLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle});
-var isPreheatingLabel = new Label({left:0, right:0, height:20, string:"False", style: labelStyle});
+var goalTempLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle}),
+var smokeDetectedLabel = new Label({left:0, right:0, height:20, string:"False", style: labelStyle});
+var timerLengthLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle}),
 
 var mainColumn = new Column({
 	left: 0, right: 0, top: 0, bottom: 0, skin: whiteSkin,
@@ -85,12 +87,23 @@ var mainColumn = new Column({
 				curOvenTempLabel
 			]
 		}),
+		new Line({left:0, right:0, bottom:0, skin: whiteSkin, 
+			contents:[
+				new Label({left:0, right:0, height:40, string:"Goal Temp:", style: labelStyle}),
+				goalTempLabel
+			]
+		}),
 		new Line({left:0, right:0, bottom:0, skin: whiteSkin,
 			contents:[
 				new Label({left:0, right:0, height:40, string:"Smoke Detected:", style: labelStyle}),
 				smokeDetectedLabel
 			]
 		}),
+		new Line({left:0, right:0, skin: whiteSkin,
+			contents:[
+				new Label({left:0, right:0, height:20, string:"Timer Length", style: labelStyle}),
+				timerLengthLabel
+			]}),
 	]
 });
 
@@ -103,12 +116,14 @@ var mainColumn = new Column({
 
 Handler.bind("/gotCurOvenTemp", Object.create(Behavior.prototype, {
 	onInvoke: { value: function( handler, message ){
-        		curOvenTemp = message.requestObject;
-        		curOvenTempLabel.string = (curOvenTemp*600).toFixed(1) + "*F";
+        		curOvenTemp = (message.requestObject*600).toFixed(1);
+        		curOvenTempLabel.string = curOvenTemp + "*F";
         		//send data to phone
-        		//message = new Message(phoneURL + "updateCurOvenTemp");
-        		//message.requestText = curOvenTemp;
-        		//application.invoke(message, Message.JSON);
+	        	if(phoneURL) {
+		        	message = new Message(phoneURL + "gotCurrentTemp");
+	        		message.requestText = curOvenTemp;
+	        		application.invoke(message, Message.JSON);
+        		}
         	}}
 }));
 
@@ -120,15 +135,16 @@ Handler.bind("/gotSmokeDetectorResults", Object.create(Behavior.prototype, {
 	        			myLog("SMOKE DETECTED ON DEVICE!\n");
 	        			smokeDetectedAlertSent = true;
 	        			smokeDetectedLabel.string = "True";
-	        			//update status message
-	        			//smokeDetectedLabel.string = smokeDetected.toFixed(2) + "%";
 	        			
 	        			//turn off oven
+	        			application.invoke(new Message("/turnOffOven"));
 	        			
 	        			//send alert to phone
-	        			message = new Message(phoneURL + "smokeDetectedAlert");
-	        			message.requestText = smokeDetected;
-	        			application.invoke(message, Message.JSON);
+	        			if(phoneURL){
+		        			message = new Message(phoneURL + "smokeDetectedAlert");
+		        			message.requestText = smokeDetected;
+		        			application.invoke(message, Message.JSON);
+	        			}
         			}
         		} else{
         			if(smokeDetectedAlertSent){
@@ -192,7 +208,6 @@ Handler.bind("/gotSmokeDetectorResults", Object.create(Behavior.prototype, {
 				interval: 20,
 				callback: "/gotSmokeDetectorResults"
 		} ) ) );
-
 
 /* Connecting to Phone */
 Handler.bind("/discover", Behavior({
