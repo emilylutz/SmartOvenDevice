@@ -1,4 +1,53 @@
 //@program
+var THEME = require('themes/flat/theme');
+var BUTTONS = require('controls/buttons');
+var CONTROL = require('mobile/control');
+var KEYBOARD = require('mobile/keyboard');
+
+var gap = 10;
+var fieldString = ""
+
+/** SKINS **/
+var whiteSkin = new Skin({fill:"white"});
+var greenS = new Skin({fill:"#67BFA0"});
+var clearS = new Skin({fill:""});
+
+/** STYLES **/
+var statusStyle = new Style({font:"bold 30px Heiti SC", color:"black"});
+var offStyle = new Style({font:"bold 70px Heiti SC", color:"black"});
+var tempStyle = new Style({font:"20px Heiti SC", color:"black", align:"left"});
+var whiteStyle = new Style({font:"20px Heiti SC", color:"white", align:"left"});
+
+
+/****************************************/
+/* MAIN CON
+/****************************************/
+var statusLabel = new Label({left: 0, right: 0, height: 70, top: 15,string: "OFF", style: offStyle})
+var currTemp = new Label({top:0, left:15, height:40, string: "Current Temp:", style: tempStyle})
+var currTempVal = new Label({top:0, left:160, height:40, string: "---", style: tempStyle})
+var currDeg = new Label({top:0, right:40, height:40, string: "°F", style: tempStyle})
+var currTempCon = new Container({top:0,left:20,right:20,height:40, contents: [currTemp, currTempVal,currDeg]});
+
+var setTempVal = new Label({right:85, height: 35,width:50, string: "---", style: tempStyle});
+var setTempLabel = new Label({left: 20, height: 60, string: "Goal Temp:", style: tempStyle})
+var degrees = new Label({string: "°F",right:40,style:tempStyle});
+var setTempCon = new Container({left:20,right:20,top:0, height: 50,contents: [setTempLabel,setTempVal,degrees]});
+var countdownLabel = new Label({top:0, bottom:0, string: "", style:statusStyle});
+
+
+var mainColumn = new Column({
+	left: 0, right: 0, top: 0, bottom: 0,
+	skin: whiteSkin,
+	contents:[
+		statusLabel,
+		currTempCon,
+		setTempCon,
+		countdownLabel,
+	]
+});
+
+
+
 var whiteSkin = new Skin( { fill:"white" } );
 var labelStyle = new Style( { font: "bold 20px", color:"black" } );
 
@@ -25,6 +74,7 @@ Handler.bind("/turnOnOven", Behavior({
 	onInvoke: function(handler, message){
 		myLog("device recieved turn on command")
 		application.invoke(new MessageWithObject("pins:/ovenStatus/turnOn"));
+		statusLabel.string = "Heating";
 		ovenOn = true;
 		message.responseText = JSON.stringify( { ovenOn: ovenOn } );
 		message.status = 200;
@@ -35,6 +85,9 @@ Handler.bind("/turnOffOven", Behavior({
 	onInvoke: function(handler, message){
 		myLog("device recieved turn off command")
 		application.invoke(new MessageWithObject("pins:/ovenStatus/turnOff"));
+		setTempVal.string = "---";
+		statusLabel.string = "OFF";
+		goalOvenTemp = null;
 		ovenOn = false;
 		message.responseText = JSON.stringify( { ovenOn: ovenOn } );
 		message.status = 200;
@@ -45,8 +98,10 @@ Handler.bind("/setGoalTemp", Behavior({
 	onInvoke: function(handler, message){
 		myLog("device recieved set goal temp command")
 		goalOvenTemp = message.requestText
+		application.invoke(new Message("/turnOnOven"));
 		//push to oven through an output pin
-		goalTempLabel.string = goalOvenTemp;
+		//goalTempLabel.string = goalOvenTemp;
+		setTempVal.string = goalOvenTemp;
 		message.responseText = JSON.stringify( { goalTemp: goalOvenTemp } );
 		message.status = 200;
 		myLog("oven goal temp has been set");
@@ -57,7 +112,8 @@ Handler.bind("/setTimer", Behavior({
 		myLog("device recieved set timer command")
 		//NEED TO IMPLEMENT
 		var timerLength = message.requestText;
-		timerLengthLabel.string = timerLength;
+		//timerLengthLabel.string = timerLength;
+		countdownLabel.string = timerLength;
 		message.responseText = JSON.stringify( { timerLength: timerLength } );
 		message.status = 200;
 		myLog("timer set");
@@ -76,8 +132,8 @@ Handler.bind("/getCurrentOvenTemp", Behavior({
 var curOvenTempLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle});
 var goalTempLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle}),
 var smokeDetectedLabel = new Label({left:0, right:0, height:20, string:"False", style: labelStyle});
-var timerLengthLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle}),
-
+var timerLengthLabel = new Label({left:0, right:0, height:20, string:"0", style: labelStyle});
+/*
 var mainColumn = new Column({
 	left: 0, right: 0, top: 0, bottom: 0, skin: whiteSkin,
 	contents: [
@@ -107,7 +163,7 @@ var mainColumn = new Column({
 	]
 });
 
-
+*/
 
 /********* SENSORS *********/
 
@@ -116,8 +172,9 @@ var mainColumn = new Column({
 
 Handler.bind("/gotCurOvenTemp", Object.create(Behavior.prototype, {
 	onInvoke: { value: function( handler, message ){
-        		curOvenTemp = (message.requestObject*600).toFixed(1);
-        		curOvenTempLabel.string = curOvenTemp + "*F";
+        		curOvenTemp = (message.requestObject*1000).toFixed(1);
+        		currTempVal.string = curOvenTemp;
+        		//curOvenTempLabel.string = curOvenTemp + "*F";
         		//send data to phone
 	        	if(phoneURL) {
 		        	message = new Message(phoneURL + "gotCurrentTemp");
