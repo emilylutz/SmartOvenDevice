@@ -116,7 +116,17 @@ Handler.bind("/setTimer", Behavior({
 		countdownLabel.string = timerLength;
 		message.responseText = JSON.stringify( { timerLength: timerLength } );
 		message.status = 200;
-		myLog("timer set");
+		//myLog("timer set");
+	}
+}));
+Handler.bind("/clearTimer", Behavior({
+	onInvoke: function(handler, message){
+		myLog("device recieved set timer command")
+		//NEED TO IMPLEMENT
+		//timerLengthLabel.string = timerLength;
+		countdownLabel.string = "";
+		myLog("timer cleared");
+		trace("TIMER CLEARED");
 	}
 }));
 Handler.bind("/getCurrentOvenTemp", Behavior({
